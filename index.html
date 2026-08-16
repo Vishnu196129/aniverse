@@ -43,7 +43,7 @@ footer{text-align:center;padding:55px 20px;color:#666;border-top:1px solid #2020
 </section>
 
 <section class="section" id="discovery">
-<div class="heading"><h2>🔥 Anime Discovery</h2><span id="apiStatus" style="font-size:12px;color:#777;margin-left:10px">● Connecting...</span><span id="count">Loading...</span></div>
+<div class="heading"><h2>🔥 Anime Discovery</h2><span id="count">Loading...</span></div>
 <div class="genres">
 <button class="genre active" data-genre="all">All</button><button class="genre" data-genre="Action">⚔️ Action</button><button class="genre" data-genre="Adventure">📖 Adventure</button><button class="genre" data-genre="Comedy">😂 Comedy</button><button class="genre" data-genre="Fantasy">🪄 Fantasy</button><button class="genre" data-genre="Romance">💗 Romance</button><button class="genre" data-genre="Sci-Fi">🚀 Sci-Fi</button><button class="genre" data-genre="Mystery">🕵️ Mystery</button><button class="genre" data-genre="Horror">👻 Horror</button>
 </div>
@@ -90,29 +90,6 @@ footer{text-align:center;padding:55px 20px;color:#666;border-top:1px solid #2020
 
 <script>
 const API='https://api.jikan.moe/v4';
-const FALLBACK = [
-  {mal_id:20,title:"Naruto",title_english:"Naruto",score:8.0,episodes:220,type:"TV",status:"Finished Airing",year:2002,genres:[{name:"Action"},{name:"Adventure"},{name:"Fantasy"}],images:{jpg:{large_image_url:"https://placehold.co/400x600/24103a/ffffff?text=NARUTO"}},synopsis:"A young ninja sets out to earn recognition and become the strongest leader of his village."},
-  {mal_id:21,title:"One Piece",title_english:"One Piece",score:9.0,episodes:null,type:"TV",status:"Currently Airing",year:1999,genres:[{name:"Action"},{name:"Adventure"},{name:"Fantasy"}],images:{jpg:{large_image_url:"https://placehold.co/400x600/102b4a/ffffff?text=ONE+PIECE"}},synopsis:"Monkey D. Luffy and his crew sail across the Grand Line in search of the legendary One Piece."},
-  {mal_id:269,B title:"Bleach".replace("B ",""),title_english:"Bleach",score:8.1,episodes:366,type:"TV",status:"Finished Airing",year:2004,genres:[{name:"Action"},{name:"Adventure"},{name:"Supernatural"}],images:{jpg:{large_image_url:"https://placehold.co/400x600/161616/ffffff?text=BLEACH"}},synopsis:"Ichigo Kurosaki gains Soul Reaper powers and is drawn into battles involving spirits and the afterlife."},
-  {mal_id:38000,title:"Demon Slayer: Kimetsu no Yaiba",title_english:"Demon Slayer: Kimetsu no Yaiba",score:8.5,episodes:26,type:"TV",status:"Finished Airing",year:2019,genres:[{name:"Action"},{name:"Fantasy"}],images:{jpg:{large_image_url:"https://placehold.co/400x600/3b1022/ffffff?text=DEMON+SLAYER"}},synopsis:"Tanjiro joins the Demon Slayer Corps after a demon attack changes his family forever."},
-  {mal_id:40748,title:"Jujutsu Kaisen",title_english:"Jujutsu Kaisen",score:8.6,episodes:24,type:"TV",status:"Finished Airing",year:2020,genres:[{name:"Action"},{name:"Fantasy"},{name:"Horror"}],images:{jpg:{large_image_url:"https://placehold.co/400x600/111827/ffffff?text=JUJUTSU+KAISEN"}},synopsis:"Yuji Itadori enters the world of cursed spirits and sorcery after a dangerous supernatural encounter."},
-  {mal_id:5114,title:"Fullmetal Alchemist: Brotherhood",title_english:"Fullmetal Alchemist: Brotherhood",score:9.1,episodes:64,type:"TV",status:"Finished Airing",year:2009,genres:[{name:"Action"},{name:"Adventure"},{name:"Fantasy"}],images:{jpg:{large_image_url:"https://placehold.co/400x600/5b3a12/ffffff?text=FMA+B"}},synopsis:"Two brothers use alchemy while searching for a way to restore what they lost."},
-  {mal_id:9253,title:"Steins;Gate",title_english:"Steins;Gate",score:9.0,episodes:24,type:"TV",status:"Finished Airing",year:2011,genres:[{name:"Drama"},{name:"Sci-Fi"},{name:"Thriller"}],images:{jpg:{large_image_url:"https://placehold.co/400x600/243b53/ffffff?text=STEINS%3BGATE"}},synopsis:"A group of friends discovers a way to send messages into the past, triggering dangerous consequences."},
-  {mal_id:52991,title:"Frieren: Beyond Journey's End",title_english:"Frieren: Beyond Journey's End",score:9.3,episodes:28,type:"TV",status:"Finished Airing",year:2023,genres:[{name:"Adventure"},{name:"Drama"},{name:"Fantasy"}],images:{jpg:{large_image_url:"https://placehold.co/400x600/284c36/ffffff?text=FRIEREN"}},synopsis:"An elf mage begins a new journey long after the heroes' great adventure has ended."},
-  {mal_id:1535,title:"Death Note",title_english:"Death Note",score:8.6,episodes:37,type:"TV",status:"Finished Airing",year:2006,genres:[{name:"Mystery"},{name:"Psychological"},{name:"Supernatural"}],images:{jpg:{large_image_url:"https://placehold.co/400x600/171717/ffffff?text=DEATH+NOTE"}},synopsis:"A student discovers a supernatural notebook that can kill anyone whose name is written in it."},
-  {mal_id:11757,title:"Sword Art Online",title_english:"Sword Art Online",score:7.2,episodes:25,type:"TV",status:"Finished Airing",year:2012,genres:[{name:"Action"},{name:"Adventure"},{name:"Fantasy"}],images:{jpg:{large_image_url:"https://placehold.co/400x600/172554/ffffff?text=SAO"}},synopsis:"Players become trapped inside a virtual reality game where defeat can have deadly consequences."},
-  {mal_id:38000,title:"Demon Slayer",title_english:"Demon Slayer",score:8.5,episodes:26,type:"TV",status:"Finished Airing",year:2019,genres:[{name:"Action"},{name:"Fantasy"}],images:{jpg:{large_image_url:"https://placehold.co/400x600/3b1022/ffffff?text=DEMON+SLAYER"}},synopsis:"A young swordsman fights demons while searching for a cure for his sister."},
-  {mal_id:41467,title:"Bleach: Thousand-Year Blood War",title_english:"Bleach: Thousand-Year Blood War",score:9.0,episodes:52,type:"TV",status:"Finished Airing",year:2022,genres:[{name:"Action"},{name:"Adventure"},{name:"Supernatural"}],images:{jpg:{large_image_url:"https://placehold.co/400x600/24103a/ffffff?text=BLEACH+TYBW"}},synopsis:"Ichigo and the Soul Reapers face their most dangerous conflict yet."}
-];
-function fallbackSearch(q){
-  const needle=q.toLowerCase();
-  return FALLBACK.filter(a=>
-    title(a).toLowerCase().includes(needle) ||
-    (a.title||'').toLowerCase().includes(needle) ||
-    (a.genres||[]).some(g=>g.name.toLowerCase().includes(needle))
-  );
-}
-
 let discovery=[],watchlist=JSON.parse(localStorage.getItem('aniverseWatchlist')||'[]'),current=null,currentResults=[];
 const $=id=>document.getElementById(id);
 
@@ -121,20 +98,7 @@ function title(a){return a.title_english||a.title||'Unknown Anime'}
 function img(a){return a.images?.jpg?.large_image_url||a.images?.jpg?.image_url||'https://placehold.co/400x600/11111a/fff?text=No+Poster'}
 function saved(id){return watchlist.some(x=>x.mal_id===id)}
 function toast(t){$('toast').textContent=t;$('toast').classList.add('show');setTimeout(()=>$('toast').classList.remove('show'),2000)}
-async function get(url,retries=2){
-  let last;
-  for(let i=0;i<=retries;i++){
-    try{
-      const r=await fetch(url,{headers:{'Accept':'application/json'}});
-      if(!r.ok) throw Error('HTTP '+r.status);
-      return await r.json();
-    }catch(e){
-      last=e;
-      if(i<retries) await new Promise(res=>setTimeout(res,900*(i+1)));
-    }
-  }
-  throw last||Error('Request failed');
-}
+async function get(url){let r=await fetch(url);if(!r.ok)throw Error('Request failed');return r.json()}
 
 function card(a){
 let el=document.createElement('article');el.className='card';let s=saved(a.mal_id);
@@ -153,8 +117,6 @@ function languageMatch(a){
 function genreList(){
   let g=document.querySelector('.genre.active').dataset.genre;
   let t=$('type').value;
-  const seen=new Set();
-  discovery=discovery.filter(a=>{if(seen.has(a.mal_id))return false;seen.add(a.mal_id);return true});
   return discovery.filter(a=>
     (g==='all'||(a.genres||[]).some(x=>x.name.toLowerCase()===g.toLowerCase())) &&
     (t==='all'||a.type===t) &&
@@ -170,32 +132,12 @@ render($('grid'),list,'No anime matched this filter.');$('count').textContent=`$
 render($('saved'),watchlist,'Your watchlist is empty.')
 }
 async function load(){
-  try{
-    let d=await get(API+'/top/anime?limit=25&sfw=true');
-    discovery=(d.data&&d.data.length)?d.data:FALLBACK;
-    refresh();
-    $('apiStatus').textContent='● Live catalog';
-    $('apiStatus').className='live';
-  }catch(e){
-    discovery=FALLBACK;
-    refresh();
-    $('apiStatus').textContent='● Offline demo catalog';
-    $('apiStatus').className='offline';
-  }
+try{let d=await get(API+'/top/anime?limit=25&sfw=true');discovery=d.data||[];refresh()}catch(e){$('grid').innerHTML='<div class="empty">❌ Could not load anime. Check internet and refresh.</div>'}
 }
 async function searchLibrary(q){
-  if(!q){$('results').innerHTML='<div class="empty">Enter an anime title to search.</div>';return}
-  $('results').innerHTML='<div class="loading">⏳ Searching worldwide catalog...</div>';
-  try{
-    let d=await get(API+'/anime?q='+encodeURIComponent(q)+'&limit=25&sfw=true');
-    currentResults=(d.data&&d.data.length)?d.data:fallbackSearch(q);
-    render($('results'),currentResults,`No results for "${esc(q)}".`);
-    $('library').scrollIntoView({behavior:'smooth'});
-  }catch(e){
-    currentResults=fallbackSearch(q);
-    render($('results'),currentResults,`No offline result for "${esc(q)}". Try again when the live catalog is available.`);
-    $('library').scrollIntoView({behavior:'smooth'});
-  }
+if(!q){$('results').innerHTML='<div class="empty">Enter an anime title to search.</div>';return}
+$('results').innerHTML='<div class="loading">⏳ Searching worldwide catalog...</div>';
+try{let d=await get(API+'/anime?q='+encodeURIComponent(q)+'&limit=25&sfw=true');currentResults=d.data||[];render($('results'),currentResults,`No results for "${esc(q)}".`);$('library').scrollIntoView({behavior:'smooth'})}catch(e){$('results').innerHTML='<div class="empty">❌ Search failed. Try again.</div>'}
 }
 async function details(a){
 current=a;fillDetails(a);$('detailsModal').classList.add('active');
