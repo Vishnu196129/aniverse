@@ -82,6 +82,7 @@ footer{text-align:center;padding:55px 20px;color:#666;border-top:1px solid #2020
 <div id="playerModal" class="modal"><div class="box"><button class="close" id="closePlayer">×</button><div class="player">
 <div class="playerhead"><h2 id="pTitle">Anime Player</h2><p id="pSub">Official trailer and authorized providers</p></div>
 <div id="screen" class="screen"><div><strong>🎬 Player ready</strong><span>Select an episode or an official provider below.</span></div></div>
+<div id="continueBox" style="margin:0 0 12px;padding:10px 12px;border-radius:10px;background:#171722;color:#aaa;font-size:12px"></div>
 <div class="episodebox"><h3>📺 Seasons & Episodes</h3><div id="seasonLine" class="filters"></div><div id="episodes" class="episodes"></div><div id="providers" class="provider"></div><div class="note">AniVerse does not host or distribute copyrighted anime episodes. Full episodes are opened through authorized provider links when supplied by the data source. Hindi/English dub availability is shown only when reliable metadata is available.</div></div>
 <div id="trailer" class="trailer" style="display:none"><h3>▶ Official Trailer</h3><iframe id="trailerFrame" allowfullscreen></iframe></div>
 </div></div></div>
@@ -372,28 +373,75 @@ async function loadRelated(a){
 }
 function toggle(a){if(saved(a.mal_id)){watchlist=watchlist.filter(x=>x.mal_id!==a.mal_id);toast('Removed from Watchlist')}else{watchlist.push(a);toast('Added to Watchlist ❤️')}localStorage.setItem('aniverseWatchlist',JSON.stringify(watchlist));if(current?.mal_id===a.mal_id)fillDetails(current);refresh()}
 function closeDetails(){$('detailsModal').classList.remove('active')}
-function openPlayer(){
+async function openPlayer(){
 if(!current)return;
 $('pTitle').textContent=title(current);$('pSub').textContent=`${current.type||'Anime'} • ${current.episodes||'?'} episodes`;
-buildSeasons(current);buildEpisodes(current);buildProviders(current);buildTrailer(current);$('playerModal').classList.add('active')
+$('playerModal').classList.add('active');await buildSeasons(current);buildEpisodes(current);buildProviders(current);buildTrailer(current)
 }
-function buildSeasons(a){
+async function buildSeasons(a){
 let line=$('seasonLine');line.innerHTML='';
-let seasons=a.related?.filter?.(()=>false)||[];
-/* Jikan's related graph is not guaranteed to contain seasons. We show a clean
-   "current entry" selector and let the API/search system find other entries. */
-let b=document.createElement('span');b.className='tag';b.textContent='Current title / season';line.appendChild(b);
+let entries=[{id:a.mal_id,name:title(a),type:'Current'}];
+if(a.mal_id && !String(a.mal_id).startsWith('al-')){
+  try{
+    let d=await get(API+'/anime/'+a.mal_id+'/relations',1);
+    (d.data||[]).forEach(group=>{
+      (group.entry||[]).forEach(e=>{
+        if(/Sequel|Prequel|Movie|Side story|Spin-off|Alternative version/i.test(group.relation))
+          entries.push({id:e.mal_id,name:e.name,type:group.relation});
+      });
+    });
+  }catch(_){}
+}
+let seen=new Set();
+entries.slice(0,16).forEach((x,i)=>{
+  if(seen.has(x.id))return; seen.add(x.id);
+  let b=document.createElement('button');b.className='genre'+(i===0?' active':'');
+  b.textContent=i===0?'Current / Season':x.type+': '+x.name;
+  b.onclick=async()=>{
+    document.querySelectorAll('#seasonLine .genre').forEach(y=>y.classList.remove('active'));b.classList.add('active');
+    if(x.id!==a.mal_id){
+      try{
+        let q=await get(API+'/anime/'+x.id+'/full',1),next=q.data;
+        $('pTitle').textContent=title(next);$('pSub').textContent=(next.type||'Anime')+' • '+(next.episodes||'?')+' episodes';
+        buildEpisodes(next);buildProviders(next);buildTrailer(next);
+      }catch(_){}
+    }else{buildEpisodes(a);buildProviders(a);buildTrailer(a)}
+  };
+  line.appendChild(b);
+ });
 }
 function buildEpisodes(a){
+let key='ep-'+(a.mal_id||a.anilist_id);let savedForContinue=Number(localStorage.getItem(key))||1;
+$('continueBox').textContent='▶ Continue watching: Episode '+savedForContinue;
 let box=$('episodes');box.innerHTML='';let n=Number(a.episodes)||0;
-if(!n){box.innerHTML='<span style="color:#777;font-size:12px">Episode count unavailable.</span>';return}
-let savedEp=Number(localStorage.getItem('ep-'+a.mal_id))||1;
-for(let i=1;i<=Math.min(n,200);i++){let b=document.createElement('button');b.className='ep'+(i===savedEp?' active':'');b.textContent=i;b.onclick=()=>{document.querySelectorAll('.ep').forEach(x=>x.classList.remove('active'));b.classList.add('active');localStorage.setItem('ep-'+a.mal_id,i);screen(i)};box.appendChild(b)}
-screen(savedEp)
+if(!n){box.innerHTML='<span style="color:#777;font-size:12px">Episode count unavailable.</span>';screen(null,a);return}
+let key='ep-'+(a.mal_id||a.anilist_id);
+let savedEp=Math.min(Math.max(Number(localStorage.getItem(key))||1,1),n);
+for(let i=1;i<=Math.min(n,300);i++){
+  let b=document.createElement('button');
+  b.className='ep'+(i===savedEp?' active':'');
+  b.textContent=i;
+  b.title='Episode '+i;
+  b.onclick=()=>{
+    document.querySelectorAll('.ep').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    localStorage.setItem(key,i);
+    screen(i,a);
+  };
+  box.appendChild(b)
 }
-function screen(ep){$('screen').innerHTML=`<div><strong>📺 Episode ${ep}</strong><span>Select an authorized provider below to watch the full episode.</span></div>`}
+screen(savedEp,a)
+}
+function screen(ep,a){
+let target=$('screen');target.innerHTML='';
+if(a?.trailer?.embed_url){
+  target.innerHTML='<iframe src="'+esc(a.trailer.embed_url)+'" title="'+esc(title(a))+' official trailer" allow="accelerometer; autoplay; encrypted-media; picture-in-picture; web-share" allowfullscreen></iframe>';
+}else{
+  target.innerHTML='<div><strong>📺 Episode '+(ep||'—')+'</strong><span>Full episodes are not hosted by AniVerse. Use an authorized provider below.</span></div>';
+}
+}
 function buildProviders(a){
-let p=$('providers');p.innerHTML='';(a.streaming||[]).forEach(x=>{let l=document.createElement('a');l.href=x.url;l.target='_blank';l.rel='noopener';l.textContent='▶ '+(x.name||'Official Provider')+' ↗';p.appendChild(l)});
+let p=$('providers');p.innerHTML='';(a.streaming||[]).forEach(x=>{let l=document.createElement('a');l.href=x.url;l.target='_blank';l.rel='noopener';l.textContent='▶ '+(x.name||'Official / Authorized Provider')+' ↗';p.appendChild(l)});
 if(!a.streaming?.length)p.innerHTML='<span style="color:#777;font-size:12px">No provider link available in the current metadata.</span>'
 }
 function buildTrailer(a){
