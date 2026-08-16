@@ -244,35 +244,22 @@ render($('grid'),list,'No anime matched this filter.');$('count').textContent=`$
 render($('saved'),watchlist,'Your watchlist is empty.')
 }
 async function load(){
-  // Render the offline catalog immediately, then upgrade it with live data.
+  // FIX: show the catalog immediately. Live API is an optional upgrade.
   discovery=[...FALLBACK];
   refresh();
-  $('apiStatus').textContent='● Connecting to live catalog...';
+  $('apiStatus').textContent='● Demo catalog ready';
   $('apiStatus').className='offline';
 
   try{
-    const live=await liveDiscovery();
-    if(live.length){
-      discovery=live;
+    const d=await get(API+'/top/anime?limit=25&sfw=true',1);
+    if(d.data&&d.data.length){
+      discovery=d.data;
       refresh();
       $('apiStatus').textContent='● Live catalog';
       $('apiStatus').className='live';
-      return;
     }
-    throw Error('No live titles');
   }catch(e){
-    // Jikan is a secondary source; the site still remains usable if either API fails.
-    try{
-      const d=await get(API+'/top/anime?limit=25&sfw=true',1);
-      if(d.data?.length){
-        discovery=d.data;
-        refresh();
-        $('apiStatus').textContent='● Live catalog (backup)';
-        $('apiStatus').className='live';
-        return;
-      }
-    }catch(_){}
-    $('apiStatus').textContent='● Offline catalog';
+    $('apiStatus').textContent='● Demo catalog (API unavailable)';
     $('apiStatus').className='offline';
   }
 }
@@ -281,28 +268,30 @@ async function searchLibrary(q){
     $('results').innerHTML='<div class="empty">Enter an anime title to search.</div>';
     return;
   }
-  $('results').innerHTML='<div class="loading">⏳ Searching live anime catalog...</div>';
+  $('results').innerHTML='<div class="loading">⏳ Searching anime catalog...</div>';
+
+  try{
+    const d=await get(API+'/anime?q='+encodeURIComponent(q)+'&limit=25&sfw=true',1);
+    if(d.data&&d.data.length){
+      currentResults=d.data;
+      render($('results'),currentResults,`No results for "${esc(q)}".`);
+      $('library').scrollIntoView({behavior:'smooth'});
+      return;
+    }
+  }catch(_){}
 
   try{
     currentResults=await liveSearch(q);
-    if(!currentResults.length) throw Error('No live results');
-    render($('results'),currentResults,`No results for "${esc(q)}".`);
-    $('library').scrollIntoView({behavior:'smooth'});
-    return;
-  }catch(e){
-    try{
-      const d=await get(API+'/anime?q='+encodeURIComponent(q)+'&limit=25&sfw=true',1);
-      if(d.data?.length){
-        currentResults=d.data;
-        render($('results'),currentResults,`No results for "${esc(q)}".`);
-        $('library').scrollIntoView({behavior:'smooth'});
-        return;
-      }
-    }catch(_){}
-    currentResults=fallbackSearch(q);
-    render($('results'),currentResults,`No live results for "${esc(q)}". Offline matches are shown when available.`);
-    $('library').scrollIntoView({behavior:'smooth'});
-  }
+    if(currentResults.length){
+      render($('results'),currentResults,`No results for "${esc(q)}".`);
+      $('library').scrollIntoView({behavior:'smooth'});
+      return;
+    }
+  }catch(_){}
+
+  currentResults=fallbackSearch(q);
+  render($('results'),currentResults,`No live results for "${esc(q)}". Offline matches are shown when available.`);
+  $('library').scrollIntoView({behavior:'smooth'});
 }
 async function details(a){
   current=a;
