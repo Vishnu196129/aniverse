@@ -50,11 +50,11 @@ footer{text-align:center;padding:55px 20px;color:#666;border-top:1px solid #2020
 <div class="filters">
 <select id="languageFilter" class="select"><option value="all">🌐 All Languages</option><option value="english">🇬🇧 English Dub</option><option value="hindi">🇮🇳 Hindi Dub</option><option value="japanese">🇯🇵 Japanese / Sub</option></select>
 <select id="sort" class="select"><option value="score">Top Rated</option><option value="popularity">Most Popular</option><option value="new">Newest</option></select><select id="type" class="select"><option value="all">All Types</option><option value="TV">TV</option><option value="Movie">Movie</option><option value="OVA">OVA</option><option value="ONA">ONA</option><option value="Special">Special</option></select></div>
-<div id="grid" class="grid"><div class="loading">⏳ Loading world anime library...</div></div>
+<div id="grid" class="grid"><div class="loading">⏳ Loading live anime library...</div></div>
 </section>
 
 <section class="section" id="library">
-<div class="heading"><h2>🌍 World Anime Library</h2><span>Search any title</span></div>
+<div class="heading"><h2>🌍 World Anime Library</h2><span>Search any anime title</span></div>
 <div class="library-tools"><input id="librarySearch" class="library-search" placeholder="Search Naruto, One Piece, Demon Slayer..."><select id="language" class="language"><option value="all">🌐 Language / Dub</option><option value="english">🇬🇧 English</option><option value="hindi">🇮🇳 Hindi</option><option value="japanese">🇯🇵 Japanese</option></select><button id="searchBtn" class="primary">Search</button></div>
 <div id="results" class="grid"><div class="empty">Search for an anime to see its titles, seasons, movies and related entries.</div></div>
 </section>
@@ -90,6 +90,7 @@ footer{text-align:center;padding:55px 20px;color:#666;border-top:1px solid #2020
 
 <script>
 const API='https://api.jikan.moe/v4';
+const ANILIST='https://graphql.anilist.co';
 const FALLBACK = [
   {mal_id:20,title:"Naruto",title_english:"Naruto",score:8.0,episodes:220,type:"TV",status:"Finished Airing",year:2002,genres:[{name:"Action"},{name:"Adventure"},{name:"Fantasy"}],images:{jpg:{large_image_url:"https://placehold.co/400x600/24103a/ffffff?text=NARUTO"}},synopsis:"A young ninja sets out to earn recognition and become the strongest leader of his village."},
   {mal_id:21,title:"One Piece",title_english:"One Piece",score:9.0,episodes:null,type:"TV",status:"Currently Airing",year:1999,genres:[{name:"Action"},{name:"Adventure"},{name:"Fantasy"}],images:{jpg:{large_image_url:"https://placehold.co/400x600/102b4a/ffffff?text=ONE+PIECE"}},synopsis:"Monkey D. Luffy and his crew sail across the Grand Line in search of the legendary One Piece."},
@@ -121,6 +122,76 @@ function title(a){return a.title_english||a.title||'Unknown Anime'}
 function img(a){return a.images?.jpg?.large_image_url||a.images?.jpg?.image_url||'https://placehold.co/400x600/11111a/fff?text=No+Poster'}
 function saved(id){return watchlist.some(x=>x.mal_id===id)}
 function toast(t){$('toast').textContent=t;$('toast').classList.add('show');setTimeout(()=>$('toast').classList.remove('show'),2000)}
+
+async function aniList(query, variables={}){
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),6500);
+  try{
+    const r=await fetch(ANILIST,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Accept':'application/json'},
+      body:JSON.stringify({query,variables}),
+      signal:controller.signal
+    });
+    if(!r.ok) throw Error('AniList HTTP '+r.status);
+    const j=await r.json();
+    if(j.errors?.length) throw Error(j.errors[0].message||'AniList error');
+    return j.data;
+  }finally{clearTimeout(timer)}
+}
+
+function mapAni(a){
+  return {
+    mal_id:'al-'+a.id,
+    anilist_id:a.id,
+    title:a.title?.english||a.title?.romaji||a.title?.native||'Unknown Anime',
+    title_english:a.title?.english||a.title?.romaji||'Unknown Anime',
+    title_japanese:a.title?.native||'',
+    score:a.averageScore?Number((a.averageScore/10).toFixed(1)):null,
+    rank:a.rankings?.find(x=>x.type==='RATED')?.rank||null,
+    episodes:a.episodes||null,
+    type:a.format==='TV'||a.format==='TV_SHORT'?'TV':(a.format||'Anime'),
+    status:a.status||'Unknown',
+    year:a.seasonYear||a.startDate?.year||null,
+    duration:a.duration?`${a.duration} min`:'N/A',
+    genres:(a.genres||[]).map(name=>({name})),
+    themes:[],
+    synopsis:(a.description||'').replace(/<[^>]*>/g,'').replace(/\s+/g,' ').trim(),
+    images:{jpg:{large_image_url:a.coverImage?.extraLarge||a.coverImage?.large||a.coverImage?.medium}},
+    url:a.siteUrl||'#'
+  };
+}
+
+const ANILIST_LIST=`query($page:Int,$perPage:Int,$sort:[MediaSort]){
+  Page(page:$page,perPage:$perPage){
+    media(type:ANIME,sort:$sort,isAdult:false){
+      id title{romaji english native} coverImage{extraLarge large medium}
+      averageScore episodes format status seasonYear startDate{year}
+      duration genres description siteUrl
+    }
+  }
+}`;
+
+const ANILIST_SEARCH=`query($search:String,$page:Int,$perPage:Int){
+  Page(page:$page,perPage:$perPage){
+    media(type:ANIME,search:$search,sort:[SEARCH_MATCH,POPULARITY_DESC],isAdult:false){
+      id title{romaji english native} coverImage{extraLarge large medium}
+      averageScore episodes format status seasonYear startDate{year}
+      duration genres description siteUrl
+    }
+  }
+}`;
+
+async function liveDiscovery(){
+  const data=await aniList(ANILIST_LIST,{page:1,perPage:30,sort:['TRENDING_DESC','POPULARITY_DESC']});
+  return (data?.Page?.media||[]).map(mapAni);
+}
+
+async function liveSearch(q){
+  const data=await aniList(ANILIST_SEARCH,{search:q,page:1,perPage:30});
+  return (data?.Page?.media||[]).map(mapAni);
+}
+
 async function get(url,retries=0){
   let last;
   for(let i=0;i<=retries;i++){
@@ -172,41 +243,96 @@ render($('grid'),list,'No anime matched this filter.');$('count').textContent=`$
 render($('saved'),watchlist,'Your watchlist is empty.')
 }
 async function load(){
-  // Show a working catalog immediately. The live API is optional.
+  // Render the offline catalog immediately, then upgrade it with live data.
   discovery=[...FALLBACK];
   refresh();
-  $('apiStatus').textContent='● Demo catalog ready';
+  $('apiStatus').textContent='● Connecting to live catalog...';
   $('apiStatus').className='offline';
+
   try{
-    let d=await get(API+'/top/anime?limit=25&sfw=true');
-    if(d.data&&d.data.length){
-      discovery=d.data;
+    const live=await liveDiscovery();
+    if(live.length){
+      discovery=live;
       refresh();
       $('apiStatus').textContent='● Live catalog';
       $('apiStatus').className='live';
+      return;
     }
+    throw Error('No live titles');
   }catch(e){
-    $('apiStatus').textContent='● Demo catalog (API unavailable)';
+    // Jikan is a secondary source; the site still remains usable if either API fails.
+    try{
+      const d=await get(API+'/top/anime?limit=25&sfw=true',1);
+      if(d.data?.length){
+        discovery=d.data;
+        refresh();
+        $('apiStatus').textContent='● Live catalog (backup)';
+        $('apiStatus').className='live';
+        return;
+      }
+    }catch(_){}
+    $('apiStatus').textContent='● Offline catalog';
     $('apiStatus').className='offline';
   }
 }
 async function searchLibrary(q){
-  if(!q){$('results').innerHTML='<div class="empty">Enter an anime title to search.</div>';return}
-  $('results').innerHTML='<div class="loading">⏳ Searching worldwide catalog...</div>';
+  if(!q){
+    $('results').innerHTML='<div class="empty">Enter an anime title to search.</div>';
+    return;
+  }
+  $('results').innerHTML='<div class="loading">⏳ Searching live anime catalog...</div>';
+
   try{
-    let d=await get(API+'/anime?q='+encodeURIComponent(q)+'&limit=25&sfw=true');
-    currentResults=(d.data&&d.data.length)?d.data:fallbackSearch(q);
+    currentResults=await liveSearch(q);
+    if(!currentResults.length) throw Error('No live results');
     render($('results'),currentResults,`No results for "${esc(q)}".`);
     $('library').scrollIntoView({behavior:'smooth'});
+    return;
   }catch(e){
+    try{
+      const d=await get(API+'/anime?q='+encodeURIComponent(q)+'&limit=25&sfw=true',1);
+      if(d.data?.length){
+        currentResults=d.data;
+        render($('results'),currentResults,`No results for "${esc(q)}".`);
+        $('library').scrollIntoView({behavior:'smooth'});
+        return;
+      }
+    }catch(_){}
     currentResults=fallbackSearch(q);
-    render($('results'),currentResults,`No offline result for "${esc(q)}". Try again when the live catalog is available.`);
+    render($('results'),currentResults,`No live results for "${esc(q)}". Offline matches are shown when available.`);
     $('library').scrollIntoView({behavior:'smooth'});
   }
 }
 async function details(a){
-current=a;fillDetails(a);$('detailsModal').classList.add('active');
-try{let d=await get(API+'/anime/'+a.mal_id+'/full');if(current?.mal_id===d.data?.mal_id){current=d.data;fillDetails(current)}}catch(e){}
+  current=a;
+  fillDetails(a);
+  $('detailsModal').classList.add('active');
+
+  if(a.anilist_id){
+    try{
+      const q=`query($id:Int){Media(id:$id,type:ANIME){
+        id title{romaji english native} coverImage{extraLarge large medium}
+        averageScore episodes format status seasonYear startDate{year}
+        duration genres description siteUrl
+      }}`;
+      const d=await aniList(q,{id:a.anilist_id});
+      if(current?.anilist_id===d?.Media?.id){
+        current=mapAni(d.Media);
+        fillDetails(current);
+      }
+      return;
+    }catch(e){}
+  }
+
+  if(a.mal_id && !String(a.mal_id).startsWith('al-')){
+    try{
+      let d=await get(API+'/anime/'+a.mal_id+'/full',1);
+      if(current?.mal_id===d.data?.mal_id){
+        current=d.data;
+        fillDetails(current);
+      }
+    }catch(e){}
+  }
 }
 function fillDetails(a){
 $('dImg').src=img(a);$('dImg').alt=title(a);$('dTitle').textContent=title(a);$('dScore').textContent=a.score?`⭐ ${a.score}/10`:'N/A';$('dEpisodes').textContent=a.episodes??'Unknown';$('dType').textContent=a.type||'Unknown';$('dStatus').textContent=a.status||'Unknown';$('dYear').textContent=a.year||a.aired?.from?.slice(0,4)||'N/A';$('dDuration').textContent=a.duration||'N/A';$('dSynopsis').textContent=a.synopsis||'Synopsis not available.';$('mal').href=a.url||'#';
