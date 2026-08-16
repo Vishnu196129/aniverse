@@ -47,7 +47,9 @@ footer{text-align:center;padding:55px 20px;color:#666;border-top:1px solid #2020
 <div class="genres">
 <button class="genre active" data-genre="all">All</button><button class="genre" data-genre="Action">⚔️ Action</button><button class="genre" data-genre="Adventure">📖 Adventure</button><button class="genre" data-genre="Comedy">😂 Comedy</button><button class="genre" data-genre="Fantasy">🪄 Fantasy</button><button class="genre" data-genre="Romance">💗 Romance</button><button class="genre" data-genre="Sci-Fi">🚀 Sci-Fi</button><button class="genre" data-genre="Mystery">🕵️ Mystery</button><button class="genre" data-genre="Horror">👻 Horror</button>
 </div>
-<div class="filters"><select id="sort" class="select"><option value="score">Top Rated</option><option value="popularity">Most Popular</option><option value="new">Newest</option></select><select id="type" class="select"><option value="all">All Types</option><option value="TV">TV</option><option value="Movie">Movie</option><option value="OVA">OVA</option><option value="ONA">ONA</option><option value="Special">Special</option></select></div>
+<div class="filters">
+<select id="languageFilter" class="select"><option value="all">🌐 All Languages</option><option value="english">🇬🇧 English Dub</option><option value="hindi">🇮🇳 Hindi Dub</option><option value="japanese">🇯🇵 Japanese / Sub</option></select>
+<select id="sort" class="select"><option value="score">Top Rated</option><option value="popularity">Most Popular</option><option value="new">Newest</option></select><select id="type" class="select"><option value="all">All Types</option><option value="TV">TV</option><option value="Movie">Movie</option><option value="OVA">OVA</option><option value="ONA">ONA</option><option value="Special">Special</option></select></div>
 <div id="grid" class="grid"><div class="loading">⏳ Loading world anime library...</div></div>
 </section>
 
@@ -71,7 +73,9 @@ footer{text-align:center;padding:55px 20px;color:#666;border-top:1px solid #2020
 <img id="dImg" class="poster" src="" alt="">
 <div><h2 id="dTitle"></h2><div id="dTags" class="tags"></div><div class="info">
 <div class="infobox"><small>⭐ Rating</small><b id="dScore">N/A</b></div><div class="infobox"><small>📺 Episodes</small><b id="dEpisodes">N/A</b></div><div class="infobox"><small>🎬 Type</small><b id="dType">N/A</b></div><div class="infobox"><small>📅 Status</small><b id="dStatus">N/A</b></div><div class="infobox"><small>📅 Year</small><b id="dYear">N/A</b></div><div class="infobox"><small>🎞 Duration</small><b id="dDuration">N/A</b></div></div>
-<p id="dSynopsis" class="synopsis"></p><div class="btnrow"><button id="watch" class="watch">▶ Watch / Player</button><button id="save" class="outline">❤️ Watchlist</button><a id="mal" class="outline" target="_blank" rel="noopener">MAL ↗</a></div></div>
+<p id="dSynopsis" class="synopsis"></p>
+<div id="relatedTitles" style="margin-top:18px"></div>
+<div class="btnrow"><button id="watch" class="watch">▶ Watch / Player</button><button id="save" class="outline">❤️ Watchlist</button><a id="mal" class="outline" target="_blank" rel="noopener">MAL ↗</a></div></div>
 </div></div></div>
 
 <!-- PLAYER -->
@@ -102,7 +106,23 @@ el.innerHTML=`<button class="heart ${s?'saved':''}">${s?'♥':'♡'}</button><im
 el.onclick=()=>details(a);el.querySelector('.heart').onclick=e=>{e.stopPropagation();toggle(a)};return el
 }
 function render(box,list,msg){box.innerHTML='';if(!list.length){box.innerHTML=`<div class="empty">${msg}</div>`;return}list.forEach(a=>box.appendChild(card(a)))}
-function genreList(){let g=document.querySelector('.genre.active').dataset.genre;let t=$('type').value;return discovery.filter(a=>(g==='all'||(a.genres||[]).some(x=>x.name.toLowerCase()===g.toLowerCase()))&&(t==='all'||a.type===t))}
+function languageMatch(a){
+  const mode=$('languageFilter').value;
+  if(mode==='all') return true;
+  const text=JSON.stringify(a).toLowerCase();
+  if(mode==='english') return /english|eng dub|english dub/.test(text);
+  if(mode==='hindi') return /hindi|hin dub|hindi dub/.test(text);
+  return true;
+}
+function genreList(){
+  let g=document.querySelector('.genre.active').dataset.genre;
+  let t=$('type').value;
+  return discovery.filter(a=>
+    (g==='all'||(a.genres||[]).some(x=>x.name.toLowerCase()===g.toLowerCase())) &&
+    (t==='all'||a.type===t) &&
+    languageMatch(a)
+  )
+}
 function refresh(){
 let list=genreList(),sort=$('sort').value;
 if(sort==='score')list.sort((a,b)=>(b.score||0)-(a.score||0));
@@ -125,8 +145,39 @@ try{let d=await get(API+'/anime/'+a.mal_id+'/full');if(current?.mal_id===d.data?
 }
 function fillDetails(a){
 $('dImg').src=img(a);$('dImg').alt=title(a);$('dTitle').textContent=title(a);$('dScore').textContent=a.score?`⭐ ${a.score}/10`:'N/A';$('dEpisodes').textContent=a.episodes??'Unknown';$('dType').textContent=a.type||'Unknown';$('dStatus').textContent=a.status||'Unknown';$('dYear').textContent=a.year||a.aired?.from?.slice(0,4)||'N/A';$('dDuration').textContent=a.duration||'N/A';$('dSynopsis').textContent=a.synopsis||'Synopsis not available.';$('mal').href=a.url||'#';
-$('dTags').innerHTML='';[...(a.genres||[]),...(a.themes||[])].forEach(x=>{let t=document.createElement('span');t.className='tag';t.textContent=x.name;$('dTags').appendChild(t)});
-$('save').textContent=saved(a.mal_id)?'💔 Remove from Watchlist':'❤️ Watchlist'
+$('dTags').innerHTML='';
+[...(a.genres||[]),...(a.themes||[])].forEach(x=>{
+  let t=document.createElement('span');t.className='tag';t.textContent=x.name;$('dTags').appendChild(t)
+});
+$('save').textContent=saved(a.mal_id)?'💔 Remove from Watchlist':'❤️ Watchlist';
+$('relatedTitles').innerHTML='<div style="color:#777;font-size:12px">Loading seasons / related titles...</div>';
+loadRelated(a);
+}
+async function loadRelated(a){
+  try{
+    const d=await get(API+'/anime/'+a.mal_id+'/relations');
+    const items=[];
+    (d.data||[]).forEach(group=>{
+      (group.entry||[]).forEach(e=>items.push({name:e.name,id:e.mal_id,type:group.relation}));
+    });
+    const useful=items.filter(x=>/Sequel|Prequel|Movie|Side story|Alternative version|Summary|Spin-off/i.test(x.type)).slice(0,12);
+    if(!useful.length){
+      $('relatedTitles').innerHTML='<div style="color:#777;font-size:12px">No related seasons or movies were listed by the catalog.</div>';
+      return;
+    }
+    $('relatedTitles').innerHTML='<div style="font-weight:700;font-size:14px;margin-bottom:9px">📚 Seasons & Related Titles</div><div id="relatedList" style="display:flex;flex-wrap:wrap;gap:7px"></div>';
+    useful.forEach(x=>{
+      const b=document.createElement('button');
+      b.className='genre';
+      b.textContent=(x.type==='Sequel'?'Season / Sequel: ':x.type+': ')+x.name;
+      b.onclick=async()=>{
+        try{const q=await get(API+'/anime/'+x.id+'/full');details(q.data)}catch(e){}
+      };
+      $('relatedList').appendChild(b);
+    });
+  }catch(e){
+    $('relatedTitles').innerHTML='<div style="color:#777;font-size:12px">Related-title information is unavailable right now.</div>';
+  }
 }
 function toggle(a){if(saved(a.mal_id)){watchlist=watchlist.filter(x=>x.mal_id!==a.mal_id);toast('Removed from Watchlist')}else{watchlist.push(a);toast('Added to Watchlist ❤️')}localStorage.setItem('aniverseWatchlist',JSON.stringify(watchlist));if(current?.mal_id===a.mal_id)fillDetails(current);refresh()}
 function closeDetails(){$('detailsModal').classList.remove('active')}
@@ -161,7 +212,7 @@ if(a.trailer?.embed_url){$('trailerFrame').src=a.trailer.embed_url;$('trailer').
 function closePlayer(){$('playerModal').classList.remove('active');$('trailerFrame').src='';$('trailer').style.display='none';current=null}
 
 document.querySelectorAll('.genre').forEach(b=>b.onclick=()=>{document.querySelectorAll('.genre').forEach(x=>x.classList.remove('active'));b.classList.add('active');refresh()});
-$('sort').onchange=refresh;$('type').onchange=refresh;
+$('sort').onchange=refresh;$('type').onchange=refresh;$('languageFilter').onchange=refresh;
 $('searchBtn').onclick=()=>searchLibrary($('librarySearch').value.trim());
 $('librarySearch').onkeydown=e=>{if(e.key==='Enter')searchLibrary(e.target.value.trim())};
 $('search').oninput=e=>{clearTimeout(window.st);let q=e.target.value.trim();window.st=setTimeout(()=>q&&searchLibrary(q),450)};
