@@ -113,6 +113,28 @@ button{transition:.18s ease}
 .result-count{font-size:11px;color:#777;margin:9px 0 0 2px}
 @media(max-width:600px){.filter-panel>*{flex:1;min-width:110px}.filter-reset{flex:none}}
 
+
+/* STEP 11 — Premium Home Dashboard */
+.home-dashboard{max-width:1240px;margin:0 auto;padding:18px 20px 4px}
+.dashboard-grid{display:grid;grid-template-columns:1.35fr 1fr;gap:14px}
+.dashboard-card{position:relative;overflow:hidden;min-height:180px;border:1px solid #29293a;border-radius:18px;padding:22px;background:linear-gradient(135deg,#18111e,#101018)}
+.dashboard-card:after{content:"";position:absolute;width:230px;height:230px;border-radius:50%;right:-90px;top:-100px;background:#ff3cac12}
+.dashboard-card>*{position:relative;z-index:1}
+.dashboard-card h2{margin:0 0 7px;font-size:24px}.dashboard-card p{margin:0;color:#999;font-size:12px;line-height:1.6;max-width:520px}
+.dashboard-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:18px}
+.dash-btn{padding:10px 13px;border:1px solid #343447;border-radius:9px;background:#151520;color:#ddd;font-size:11px;font-weight:800}
+.dash-btn.primary{background:linear-gradient(135deg,#ff3cac,#784ba0);border:0;color:#fff}
+.dashboard-mini{min-height:180px;background:#11111a}
+.dashboard-stat{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #222231}
+.dashboard-stat:last-child{border-bottom:0}.dashboard-stat span{color:#888;font-size:11px}.dashboard-stat strong{font-size:14px}
+.quick-section{max-width:1240px;margin:0 auto;padding:12px 20px}
+.quick-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.quick-tile{padding:15px;border:1px solid #29293a;border-radius:12px;background:#11111a;text-align:left;color:#ddd}
+.quick-tile:hover{border-color:var(--pink);background:#17121f}
+.quick-tile b{display:block;font-size:12px}.quick-tile span{display:block;margin-top:5px;color:#777;font-size:10px}
+@media(max-width:800px){.dashboard-grid{grid-template-columns:1fr}.quick-row{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:500px){.quick-row{grid-template-columns:1fr 1fr}.dashboard-card h2{font-size:20px}}
+
 </style>
 </head>
 <body>
@@ -131,6 +153,34 @@ button{transition:.18s ease}
 <p>Search a global anime catalog, explore seasons and related entries, check language/dub information when available, save favourites, watch official trailers and find authorized streaming providers.</p>
 <div class="actions"><button class="primary" onclick="document.getElementById('discovery').scrollIntoView()">🔥 Explore Library</button><button class="secondary" onclick="document.getElementById('watchlist').scrollIntoView()">❤️ Watchlist</button></div>
 </div>
+</section>
+
+<section class="home-dashboard" id="homeDashboard">
+  <div class="dashboard-grid">
+    <div class="dashboard-card">
+      <h2>🌌 Welcome to AniVerse</h2>
+      <p>Your anime universe for discovering series, movies, seasons and episodes. Search the live catalog and jump back into your watch history.</p>
+      <div class="dashboard-actions">
+        <button class="dash-btn primary" id="dashDiscover">✨ Discover Anime</button>
+        <button class="dash-btn" id="dashSearch">🔎 Search</button>
+        <button class="dash-btn" id="dashLibrary">❤️ My Library</button>
+      </div>
+    </div>
+    <div class="dashboard-card dashboard-mini">
+      <div class="dashboard-stat"><span>Saved titles</span><strong id="dashSaved">0</strong></div>
+      <div class="dashboard-stat"><span>Continue watching</span><strong id="dashWatching">0</strong></div>
+      <div class="dashboard-stat"><span>Current mode</span><strong>Live Catalog</strong></div>
+    </div>
+  </div>
+</section>
+
+<section class="quick-section">
+  <div class="quick-row">
+    <button class="quick-tile" id="quickTrending"><b>🔥 Trending</b><span>Discover popular anime</span></button>
+    <button class="quick-tile" id="quickMovies"><b>🎬 Movies</b><span>Find anime films</span></button>
+    <button class="quick-tile" id="quickSeries"><b>📺 Series</b><span>Browse TV titles</span></button>
+    <button class="quick-tile" id="quickFavorites"><b>❤️ Favorites</b><span>Open your saved library</span></button>
+  </div>
 </section>
 
 <section class="continue-section" id="continueWatchingSection" style="display:none">
@@ -403,6 +453,7 @@ function renderContinueWatching(){
   const sec=$('continueWatchingSection'), row=$('continueRow');
   if(!sec||!row)return;
   const h=getWatchHistory();
+  updateDashboardStats();
   sec.style.display=h.length?'block':'none';
   row.innerHTML='';
   h.forEach(x=>{
@@ -783,6 +834,21 @@ document.addEventListener('click',e=>{
   const box=$('searchSuggest'), wrap=document.querySelector('.search-wrap');
   if(box&&wrap&&!wrap.contains(e.target))box.style.display='none';
 });
+
+function updateDashboardStats(){
+  const saved=JSON.parse(localStorage.getItem('aniverse-watchlist')||'[]');
+  const history=getWatchHistory();
+  $('dashSaved').textContent=Array.isArray(saved)?saved.length:0;
+  $('dashWatching').textContent=history.length;
+}
+$('dashDiscover').onclick=()=>document.getElementById('discovery')?.scrollIntoView({behavior:'smooth'});
+$('dashSearch').onclick=()=>{document.getElementById('globalSearch')?.focus();document.getElementById('globalSearch')?.scrollIntoView({behavior:'smooth',block:'center'});};
+$('dashLibrary').onclick=()=>document.getElementById('watchlist')?.scrollIntoView({behavior:'smooth'});
+$('quickTrending').onclick=()=>{document.getElementById('discovery')?.scrollIntoView({behavior:'smooth'}); $('globalSearch').value='trending'; searchLibrary('trending');};
+$('quickMovies').onclick=()=>{document.getElementById('filterType').value='Movie'; applyAdvancedFilters(); document.getElementById('discovery')?.scrollIntoView({behavior:'smooth'});};
+$('quickSeries').onclick=()=>{document.getElementById('filterType').value='TV'; applyAdvancedFilters(); document.getElementById('discovery')?.scrollIntoView({behavior:'smooth'});};
+$('quickFavorites').onclick=()=>document.getElementById('watchlist')?.scrollIntoView({behavior:'smooth'});
+updateDashboardStats();
 document.querySelectorAll('.genre').forEach(b=>b.onclick=()=>{document.querySelectorAll('.genre').forEach(x=>x.classList.remove('active'));b.classList.add('active');refresh()});
 $('sort').onchange=refresh;$('type').onchange=refresh;$('languageFilter').onchange=refresh;
 $('searchBtn').onclick=()=>searchLibrary($('librarySearch').value.trim());
