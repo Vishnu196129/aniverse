@@ -29,6 +29,32 @@ footer{text-align:center;padding:55px 20px;color:#666;border-top:1px solid #2020
 .progress-wrap{margin-top:10px;background:#191925;border-radius:99px;height:6px;overflow:hidden}
 .progress-bar{height:100%;width:0;background:linear-gradient(90deg,var(--pink),var(--purple));transition:.2s}
 
+
+/* STEP 6 — Premium UI */
+.hero{position:relative;overflow:hidden;border-bottom:1px solid #181824}
+.hero:before,.hero:after{content:"";position:absolute;border-radius:50%;pointer-events:none;filter:blur(3px)}
+.hero:before{width:420px;height:420px;right:-120px;top:20px;background:#ff3cac12}
+.hero:after{width:320px;height:320px;left:-180px;bottom:-160px;background:#784ba018}
+.hero>div{position:relative;z-index:1}
+.feature-strip{max-width:1240px;margin:0 auto;padding:5px 20px 28px;display:grid;grid-template-columns:1.5fr 1fr 1fr;gap:14px}
+.feature-card{position:relative;min-height:145px;border:1px solid #29293a;border-radius:18px;overflow:hidden;background:linear-gradient(135deg,#17121f,#101017);padding:20px}
+.feature-card h3{margin:0 0 8px;font-size:18px}.feature-card p{margin:0;color:#999;font-size:12px;line-height:1.6}
+.feature-card .feature-icon{font-size:30px;margin-bottom:8px}
+.feature-card:first-child{background:linear-gradient(135deg,#29142c,#17121f)}
+.section{scroll-margin-top:80px}
+.card{box-shadow:0 0 0 1px #ffffff02 inset}
+.cardbody{background:linear-gradient(180deg,#11111a,#0f0f17)}
+.card h3{line-height:1.35;min-height:38px}
+.card .meta{align-items:center}
+.heading h2{letter-spacing:-.3px}
+.search::placeholder,.library-search::placeholder{color:#666}
+.primary{box-shadow:0 8px 25px #ff3cac1a}
+.primary:hover,.watch:hover{transform:translateY(-1px);filter:brightness(1.08)}
+.secondary:hover,.outline:hover{border-color:var(--pink);background:#17121e}
+button{transition:.18s ease}
+@media(max-width:800px){.feature-strip{grid-template-columns:1fr 1fr}.feature-card:first-child{grid-column:1/-1}}
+@media(max-width:600px){.feature-strip{grid-template-columns:1fr;padding-top:0}.feature-card:first-child{grid-column:auto}.feature-card{min-height:120px}.hero{padding-top:52px}}
+
 </style>
 </head>
 <body>
@@ -57,7 +83,7 @@ footer{text-align:center;padding:55px 20px;color:#666;border-top:1px solid #2020
 <div class="filters">
 <select id="languageFilter" class="select"><option value="all">🌐 All Languages</option><option value="english">🇬🇧 English Dub</option><option value="hindi">🇮🇳 Hindi Dub</option><option value="japanese">🇯🇵 Japanese / Sub</option></select>
 <select id="sort" class="select"><option value="score">Top Rated</option><option value="popularity">Most Popular</option><option value="new">Newest</option></select><select id="type" class="select"><option value="all">All Types</option><option value="TV">TV</option><option value="Movie">Movie</option><option value="OVA">OVA</option><option value="ONA">ONA</option><option value="Special">Special</option></select></div>
-<div id="grid" class="grid"><div class="loading">⏳ Loading live anime library...</div></div>
+<div id="grid" class="grid"><div class="loading">✨ Loading your anime universe...</div></div>
 </section>
 
 <section class="section" id="library">
