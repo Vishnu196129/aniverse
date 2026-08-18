@@ -67,6 +67,24 @@ button{transition:.18s ease}
 .show-action{flex:1;padding:8px 7px;border:1px solid #303044;border-radius:8px;background:#151520;color:#bbb;font-size:10px;font-weight:800}
 .show-action:hover{border-color:var(--pink);color:#fff;background:#291426}
 
+
+/* STEP 8 — Series / Seasons experience */
+.series-panel{display:none;margin-top:18px;padding:18px;background:#0e0e16;border:1px solid #29293a;border-radius:16px}
+.series-panel.active{display:block}
+.series-head{display:grid;grid-template-columns:130px 1fr;gap:16px;align-items:start}
+.series-head img{width:130px;height:185px;object-fit:cover;border-radius:12px}
+.series-head h3{margin:0 0 7px;font-size:21px}
+.series-head p{margin:0;color:#999;font-size:12px;line-height:1.65}
+.season-cards{display:flex;gap:9px;flex-wrap:wrap;margin-top:15px}
+.season-card{min-width:150px;padding:12px;border:1px solid #303044;border-radius:11px;background:#171722;color:#ddd;text-align:left}
+.season-card:hover,.season-card.active{border-color:var(--pink);background:#291426}
+.season-card strong{display:block;font-size:12px}.season-card span{display:block;color:#777;font-size:10px;margin-top:4px}
+.series-episodes{margin-top:15px}.series-episodes h4{font-size:13px;margin:0 0 9px}
+.series-episode-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:7px}
+.series-episode{padding:9px;border:1px solid #303044;border-radius:9px;background:#151520;color:#bbb;text-align:left;font-size:11px}
+.series-episode:hover{border-color:var(--pink);color:#fff}
+@media(max-width:600px){.series-head{grid-template-columns:90px 1fr}.series-head img{width:90px;height:130px}.series-episode-list{grid-template-columns:repeat(2,1fr)}}
+
 </style>
 </head>
 <body>
@@ -102,6 +120,20 @@ button{transition:.18s ease}
 <div class="heading"><h2>🌍 World Anime Library</h2><span>Search any anime title</span></div>
 <div class="library-tools"><input id="librarySearch" class="library-search" placeholder="Search Naruto, One Piece, Demon Slayer..."><select id="language" class="language"><option value="all">🌐 Language / Dub</option><option value="english">🇬🇧 English</option><option value="hindi">🇮🇳 Hindi</option><option value="japanese">🇯🇵 Japanese</option></select><button id="searchBtn" class="primary">Search</button></div>
 <div id="results" class="grid"><div class="empty">Search for an anime to see its titles, seasons, movies and related entries.</div></div>
+    <div id="seriesPanel" class="series-panel">
+      <div class="series-head">
+        <img id="seriesImg" src="" alt="">
+        <div>
+          <h3 id="seriesTitle">Series</h3>
+          <p id="seriesSummary">Select a season to view its episodes.</p>
+          <div id="seasonCards" class="season-cards"></div>
+        </div>
+      </div>
+      <div class="series-episodes">
+        <h4 id="seriesEpisodeTitle">Episodes</h4>
+        <div id="seriesEpisodeList" class="series-episode-list"></div>
+      </div>
+    </div>
 </section>
 
 <section class="section" id="watchlist">
@@ -290,7 +322,7 @@ function card(a){
 
   el.onclick=()=>details(a);
   el.querySelector('.heart').onclick=e=>{e.stopPropagation();toggle(a)};
-  el.querySelector('.quick-details').onclick=e=>{e.stopPropagation();details(a)};
+  el.querySelector('.quick-details').onclick=e=>{e.stopPropagation();openSeriesPanel(a)};
   el.querySelector('.quick-watch').onclick=async e=>{
     e.stopPropagation();
     current=a;
@@ -355,6 +387,70 @@ async function load(){
     $('apiStatus').className='offline';
   }
 }
+
+function openSeriesPanel(a){
+  $('seriesPanel').classList.add('active');
+  $('seriesImg').src=img(a);
+  $('seriesImg').alt=title(a);
+  $('seriesTitle').textContent=title(a);
+  $('seriesSummary').textContent=(a.synopsis||'Explore seasons and episodes for this anime.').slice(0,260);
+  loadSeriesSeasons(a);
+  $('seriesPanel').scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+async function loadSeriesSeasons(a){
+  const wrap=$('seasonCards');
+  wrap.innerHTML='<span style="color:#777;font-size:11px">Loading seasons...</span>';
+  const entries=await normalizeSeasonEntries(a);
+  wrap.innerHTML='';
+  entries.forEach((x,i)=>{
+    const b=document.createElement('button');
+    b.className='season-card'+(i===0?' active':'');
+    b.innerHTML=`<strong>${i===0?'Current / Season':esc(x.name)}</strong><span>${esc(x.type)}${x.data?.episodes?' • '+x.data.episodes+' episodes':''}</span>`;
+    b.onclick=async()=>{
+      document.querySelectorAll('.season-card').forEach(v=>v.classList.remove('active'));
+      b.classList.add('active');
+      let data=a;
+      if(x.id!==a.mal_id){
+        try{data=(await get(API+'/anime/'+x.id+'/full',1)).data}catch(_){}
+      }
+      renderSeriesEpisodes(data);
+    };
+    wrap.appendChild(b);
+  });
+  renderSeriesEpisodes(a);
+}
+
+function renderSeriesEpisodes(a){
+  const list=$('seriesEpisodeList');
+  const n=Number(a?.episodes)||0;
+  $('seriesEpisodeTitle').textContent=`${title(a)} — Episodes`;
+  list.innerHTML='';
+  if(!n){
+    list.innerHTML='<span style="color:#777;font-size:11px">Episode count unavailable.</span>';
+    return;
+  }
+  for(let i=1;i<=Math.min(n,300);i++){
+    const b=document.createElement('button');
+    b.className='series-episode';
+    b.textContent=`▶ Episode ${i}`;
+    b.onclick=async()=>{
+      current=a;
+      localStorage.setItem('ep-'+(a.mal_id||a.anilist_id),i);
+      $('seriesPanel').classList.remove('active');
+      $('playerModal').classList.add('active');
+      $('pTitle').textContent=title(a);
+      $('pSub').textContent=`${a.type||'Anime'} • Episode ${i}`;
+      await buildSeasons(a);
+      buildEpisodes(a);
+      buildProviders(a);
+      buildTrailer(a);
+      selectEpisode(a,i);
+    };
+    list.appendChild(b);
+  }
+}
+
 async function searchLibrary(q){
   if(!q){
     $('results').innerHTML='<div class="empty">Enter an anime title to search.</div>';
