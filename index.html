@@ -150,6 +150,17 @@ button{transition:.18s ease}
 .row-loading{color:#666;font-size:11px;padding:15px}
 @media(max-width:600px){.mini-anime{flex-basis:125px}.mini-anime img{height:175px}}
 
+
+/* STEP 13 — Genre Explorer + Details */
+.genre-explorer{max-width:1240px;margin:0 auto;padding:5px 20px 20px}
+.genre-pills{display:flex;gap:7px;overflow-x:auto;padding:3px 2px 9px}
+.genre-pill{white-space:nowrap;padding:8px 11px;border:1px solid #303044;border-radius:99px;background:#151520;color:#aaa;font-size:10px;font-weight:800}
+.genre-pill:hover,.genre-pill.active{border-color:var(--pink);background:#291426;color:#fff}
+.genre-results{display:flex;gap:10px;overflow-x:auto;padding:2px 2px 8px}
+.genre-results .mini-anime{flex-basis:140px}
+.details-extra{margin-top:13px;display:flex;gap:6px;flex-wrap:wrap}
+.details-tag{padding:5px 7px;border-radius:6px;background:#191925;color:#999;font-size:10px}
+
 </style>
 </head>
 <body>
@@ -196,6 +207,12 @@ button{transition:.18s ease}
     <button class="quick-tile" id="quickSeries"><b>📺 Series</b><span>Browse TV titles</span></button>
     <button class="quick-tile" id="quickFavorites"><b>❤️ Favorites</b><span>Open your saved library</span></button>
   </div>
+</section>
+
+<section class="genre-explorer" id="genreExplorer">
+  <div class="heading"><h2>🎭 Explore by Genre</h2><p>Jump into a mood or story style.</p></div>
+  <div class="genre-pills" id="genrePills"></div>
+  <div class="genre-results" id="genreResults"><div class="row-loading">Choose a genre to explore.</div></div>
 </section>
 
 <section class="home-anime-rows" id="homeAnimeRows">
@@ -484,7 +501,6 @@ function renderContinueWatching(){
   if(!sec||!row)return;
   const h=getWatchHistory();
   updateDashboardStats();
-loadHomeRows();
   sec.style.display=h.length?'block':'none';
   row.innerHTML='';
   h.forEach(x=>{
@@ -867,6 +883,29 @@ document.addEventListener('click',e=>{
 });
 
 
+
+const HOME_GENRES=[['Action',1],['Adventure',2],['Comedy',4],['Drama',8],['Fantasy',10],['Romance',22],['Mystery',7],['Horror',14],['Sci-Fi',24],['Sports',30],['Supernatural',37],['Thriller',41],['Slice of Life',36],['Psychological',40]];
+function buildGenrePills(){
+  const wrap=$('genrePills'); if(!wrap)return;
+  HOME_GENRES.forEach((item,i)=>{
+    const [g,id]=item;
+    const b=document.createElement('button');
+    b.className='genre-pill'+(i===0?' active':'');
+    b.textContent=g;
+    b.dataset.genreId=id;
+    b.onclick=()=>loadGenreRow(g,id,b);
+    wrap.appendChild(b);
+  });
+}
+async function loadGenreRow(genre,genreId,button){
+  document.querySelectorAll('.genre-pill').forEach(x=>x.classList.remove('active'));
+  button?.classList.add('active');
+  const row=$('genreResults'); row.innerHTML='<div class="row-loading">Loading '+esc(genre)+' anime...</div>';
+  try{
+    const d=await get(API+'/anime?genres='+encodeURIComponent(String(genreId))+'&limit=12&sfw=true',1);
+    fillAnimeRow('genreResults',d.data||[]);
+  }catch(_){row.innerHTML='<div class="row-loading">Genre results unavailable right now.</div>'}
+}
 function miniAnimeCard(a){
   const c=document.createElement('article'); c.className='mini-anime';
   c.innerHTML=`<img src="${esc(img(a))}" alt="${esc(title(a))}" loading="lazy"><div class="mini-info"><strong>${esc(title(a))}</strong><span>${a.score?'⭐ '+a.score+' • ':''}${esc(a.type||'Anime')}</span></div>`;
@@ -882,9 +921,9 @@ function fillAnimeRow(id,list){
 async function loadHomeRows(){
   try{
     const [trend,popular,newest]=await Promise.all([
-      get(API+'/anime?sort=score&limit=12',1),
-      get(API+'/anime?sort=score&limit=12',1),
-      get(API+'/anime?sort=desc&limit=12',1)
+      get(API+'/anime?order_by=popularity&sort=asc&limit=12&sfw=true',1),
+      get(API+'/anime?order_by=score&sort=desc&limit=12&sfw=true',1),
+      get(API+'/anime?order_by=start_date&sort=desc&limit=12&sfw=true',1)
     ]);
     fillAnimeRow('trendingTrack',trend.data||[]);
     fillAnimeRow('popularTrack',popular.data||[]);
@@ -913,6 +952,9 @@ $('quickMovies').onclick=()=>{document.getElementById('filterType').value='Movie
 $('quickSeries').onclick=()=>{document.getElementById('filterType').value='TV'; applyAdvancedFilters(); document.getElementById('discovery')?.scrollIntoView({behavior:'smooth'});};
 $('quickFavorites').onclick=()=>document.getElementById('watchlist')?.scrollIntoView({behavior:'smooth'});
 updateDashboardStats();
+buildGenrePills();
+loadHomeRows();
+loadGenreRow(HOME_GENRES[0][0],HOME_GENRES[0][1],document.querySelector('.genre-pill'));
 document.querySelectorAll('.genre').forEach(b=>b.onclick=()=>{document.querySelectorAll('.genre').forEach(x=>x.classList.remove('active'));b.classList.add('active');refresh()});
 $('sort').onchange=refresh;$('type').onchange=refresh;$('languageFilter').onchange=refresh;
 $('searchBtn').onclick=()=>searchLibrary($('librarySearch').value.trim());
