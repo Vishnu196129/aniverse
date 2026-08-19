@@ -161,6 +161,14 @@ button{transition:.18s ease}
 .details-extra{margin-top:13px;display:flex;gap:6px;flex-wrap:wrap}
 .details-tag{padding:5px 7px;border-radius:6px;background:#191925;color:#999;font-size:10px}
 
+
+/* STEP 15 — Player polish / API-safe integration */
+.player-status{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.player-status span{padding:6px 9px;border:1px solid var(--line);border-radius:8px;background:var(--card2);color:var(--muted);font-size:10px}
+.player-status .live{border-color:#48e0a055;color:var(--green)}
+.episodebox .filters{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:10px}
+.season-select{padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card2);color:#ddd;font-size:11px}
+.ep.watched::after{content:' ✓';color:var(--green)}
 </style>
 </head>
 <body>
@@ -303,12 +311,12 @@ button{transition:.18s ease}
 
 <!-- PLAYER -->
 <div id="playerModal" class="modal"><div class="box"><button class="close" id="closePlayer">×</button><div class="player">
-<div class="playerhead"><h2 id="pTitle">Anime Player</h2><p id="pSub">Official trailer and authorized providers</p></div>
+<div class="playerhead"><h2 id="pTitle">Anime Player</h2><p id="pSub">Official trailer and authorized providers</p></div><div id="playerStatus" class="player-status"><span>● Ready</span></div>
 <div id="screen" class="screen"><div><strong>🎬 Player ready</strong><span>Select an episode or an official provider below.</span></div></div>
 <div id="continueBox" style="margin:0 0 12px;padding:10px 12px;border-radius:10px;background:#171722;color:#aaa;font-size:12px"></div>
     <div class="watching-tools">
       <button id="continueBtn" class="watch-action">▶ Continue</button>
-      <button id="firstEpisodeBtn" class="watch-action">⏮ Start from Episode 1</button><button id="nextEpisodeBtn" class="watch-action">⏭ Next Episode</button>
+      <button id="firstEpisodeBtn" class="watch-action">⏮ Start from Episode 1</button><button id="nextEpisodeBtn" class="watch-action">⏭ Next Episode</button><button id="markWatchedBtn" class="watch-action">✓ Mark Watched</button>
     </div>
     <div class="progress-wrap"><div id="episodeProgress" class="progress-bar"></div></div>
 <div class="episodebox"><h3>📺 Seasons & Episodes</h3><div id="seasonLine" class="filters"></div><div id="episodes" class="episodes"></div><div id="providers" class="provider"></div><div class="note">AniVerse does not host or distribute copyrighted anime episodes. Full episodes are opened through authorized provider links when supplied by the data source. Hindi/English dub availability is shown only when reliable metadata is available.</div></div>
@@ -347,7 +355,15 @@ let discovery=[],watchlist=JSON.parse(localStorage.getItem('aniverseWatchlist')|
 const $=id=>document.getElementById(id);
 
 function esc(x){return String(x||'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'","&#039;")}
-function title(a){return a.title_english||a.title||'Unknown Anime'}
+function title(a){
+  if(!a)return 'Unknown Anime';
+  if(typeof a.title_english==='string' && a.title_english.trim()) return a.title_english;
+  if(typeof a.title==='string' && a.title.trim()) return a.title;
+  if(a.title && typeof a.title==='object'){
+    return a.title.english||a.title.romaji||a.title.native||'Unknown Anime';
+  }
+  return 'Unknown Anime';
+}
 function img(a){return a.images?.jpg?.large_image_url||a.images?.jpg?.image_url||'https://placehold.co/400x600/11111a/fff?text=No+Poster'}
 function saved(id){return watchlist.some(x=>x.mal_id===id)}
 function toast(t){$('toast').textContent=t;$('toast').classList.add('show');setTimeout(()=>$('toast').classList.remove('show'),2000)}
@@ -792,6 +808,80 @@ function goToEpisode(a, ep){
   toast(`Episode ${target} selected ▶`);
 }
 
+
+/* STEP 15 — Normalize seasons from Jikan relations */
+async function normalizeSeasonEntries(a){
+  const entries=[{id:a?.mal_id,name:title(a),type:'Current',data:a}];
+  const id=String(a?.mal_id||'');
+  if(!id || id.startsWith('al-')) return entries;
+  try{
+    const d=await get(API+'/anime/'+id+'/relations',1);
+    const seen=new Set([id]);
+    (d.data||[]).forEach(group=>{
+      (group.entry||[]).forEach(e=>{
+        const eid=String(e.mal_id);
+        if(!seen.has(eid) && /Sequel|Prequel|Side story|Alternative version|Spin-off|Movie/i.test(group.relation)){
+          seen.add(eid);
+          entries.push({id:e.mal_id,name:e.name,type:group.relation,data:null});
+        }
+      });
+    });
+  }catch(_){}
+  return entries.slice(0,12);
+}
+
+/* STEP 15 — Player season selector */
+async function buildSeasons(a){
+  const line=$('seasonLine');
+  if(!line)return;
+  line.innerHTML='';
+  const entries=await normalizeSeasonEntries(a);
+  if(entries.length<=1){
+    line.innerHTML='<span style="color:#777;font-size:11px">Current season</span>';
+    return;
+  }
+  const select=document.createElement('select');
+  select.className='season-select';
+  entries.forEach((x,i)=>{
+    const o=document.createElement('option');
+    o.value=i;
+    o.textContent=(i===0?'Current: ':x.type+': ')+x.name;
+    select.appendChild(o);
+  });
+  select.onchange=async()=>{
+    const x=entries[Number(select.value)];
+    let data=a;
+    if(x.id!==a.mal_id){
+      try{data=(await get(API+'/anime/'+x.id+'/full',1)).data}catch(_){}
+    }
+    current=data;
+    $('pTitle').textContent=title(data);
+    $('pSub').textContent=`${data.type||'Anime'} • ${data.episodes||'?'} episodes`;
+    buildEpisodes(data);
+    buildProviders(data);
+    buildTrailer(data);
+    updateWatchingUI(data);
+  };
+  line.appendChild(select);
+}
+
+/* STEP 15 — Safe next-episode control */
+function nextEpisode(){
+  if(!current)return;
+  const n=Number(current.episodes)||0;
+  const cur=Math.max(Number(localStorage.getItem('ep-'+(current.mal_id||current.anilist_id)))||1,1);
+  if(!n){
+    toast('Episode count unavailable');
+    return;
+  }
+  if(cur>=n){
+    toast('You reached the last episode 🎉');
+    return;
+  }
+  selectEpisode(current,cur+1);
+  $('screen').scrollIntoView({behavior:'smooth',block:'center'});
+}
+
 function buildEpisodes(a){
   const key='ep-'+(a.mal_id||a.anilist_id);
   const savedEp=Math.max(Number(localStorage.getItem(key))||1,1);
@@ -801,15 +891,19 @@ function buildEpisodes(a){
   const n=Number(a.episodes)||0;
   if(!n){
     box.innerHTML='<span style="color:#777;font-size:12px">Episode count unavailable.</span>';
-    screen(null,a); return;
+    screen(null,a);
+    updateWatchingUI(a);
+    return;
   }
 
   const max=Math.min(n,300);
+  const watched=JSON.parse(localStorage.getItem('aniverse-watched-'+key)||'[]');
+
   for(let i=1;i<=max;i++){
     const b=document.createElement('button');
-    b.className='ep'+(i===Math.min(savedEp,max)?' active':'');
+    b.className='ep'+(i===Math.min(savedEp,max)?' active':'')+(watched.includes(i)?' watched':'');
     b.textContent=i;
-    b.title='Episode '+i;
+    b.title='Episode '+i+(watched.includes(i)?' • Watched':'');
     b.onclick=()=>{
       selectEpisode(a,i);
       $('screen').scrollIntoView({behavior:'smooth',block:'center'});
@@ -817,6 +911,20 @@ function buildEpisodes(a){
     box.appendChild(b);
   }
   screen(Math.min(savedEp,max),a);
+  updateWatchingUI(a);
+}
+
+function markCurrentWatched(){
+  if(!current)return;
+  const key='ep-'+(current.mal_id||current.anilist_id);
+  const ep=Math.max(Number(localStorage.getItem(key))||1,1);
+  const storage='aniverse-watched-'+key;
+  let list=[];
+  try{list=JSON.parse(localStorage.getItem(storage)||'[]')}catch(_){}
+  if(!list.includes(ep))list.push(ep);
+  localStorage.setItem(storage,JSON.stringify(list));
+  buildEpisodes(current);
+  toast(`Episode ${ep} marked watched ✓`);
 }
 
 function screen(ep,a){
@@ -848,6 +956,8 @@ function selectEpisode(a,ep){
   saveWatchHistory(a,ep);
   document.querySelectorAll('#episodes .ep').forEach(x=>x.classList.toggle('active',Number(x.textContent)===ep));
   updateWatchingUI(a);
+  $('pSub').textContent=`${a.type||'Anime'} • Episode ${ep}`;
+  if($('playerStatus')) $('playerStatus').innerHTML='<span class="live">● Episode '+ep+' selected</span><span>Progress saved</span>';
   screen(ep,a);
 }
 
@@ -875,10 +985,22 @@ function buildTrailer(a){
   }
 }
 
-function closePlayer(){$('playerModal').classList.remove('active');$('trailerFrame').src='';$('trailer').style.display='none';current=null}
+function closePlayer(){
+  $('playerModal').classList.remove('active');
+  $('trailerFrame').src='';
+  $('trailer').style.display='none';
+  $('seasonLine').innerHTML='';
+  $('episodes').innerHTML='';
+  if($('playerStatus')) $('playerStatus').innerHTML='<span>● Ready</span>';
+  current=null;
+}
 
 $('continueBtn').onclick=()=>current&&selectEpisode(current,Number(localStorage.getItem('ep-'+(current.mal_id||current.anilist_id)))||1);
+$('nextEpisodeBtn').onclick=nextEpisode;
+$('continueBtn').title='Resume your saved episode';
+
 $('firstEpisodeBtn').onclick=()=>current&&selectEpisode(current,1);
+$('markWatchedBtn').onclick=markCurrentWatched;
 $('clearHistory').onclick=()=>{localStorage.removeItem('aniverse-watch-history');renderContinueWatching()};
 renderContinueWatching();
 ['filterType','filterStatus','filterYear','filterScore','filterSort'].forEach(id=>$(id)?.addEventListener('input',applyAdvancedFilters));
