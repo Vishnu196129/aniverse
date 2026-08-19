@@ -1203,6 +1203,117 @@ $('closeDetails').onclick=closeDetails;$('closePlayer').onclick=closePlayer;
 $('detailsModal').onclick=e=>{if(e.target===$('detailsModal'))closeDetails()};$('playerModal').onclick=e=>{if(e.target===$('playerModal'))closePlayer()};
 document.onkeydown=e=>{if(e.key==='Escape'){if($('playerModal').classList.contains('active'))closePlayer();else closeDetails()}};
 load();refresh();
+
+/* ==========================================
+   STEP 17 — Enhanced Watch Experience
+   Uses only supplied/authorized media URLs.
+========================================== */
+(function(){
+  const style=document.createElement('style');
+  style.textContent=`
+    .step17-watchbar{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+    .step17-source{padding:9px 11px;border:1px solid var(--line);border-radius:9px;background:var(--card2);color:#ddd;cursor:pointer;font-size:11px;font-weight:700}
+    .step17-source:hover,.step17-source.active{border-color:var(--pink);background:#291426;color:#fff}
+    .step17-direct{width:100%;max-height:100%;display:block;background:#000}
+    .step17-empty{padding:20px;text-align:center;color:#777;font-size:12px}
+    .step17-next{margin-top:10px;padding:10px 12px;border:1px solid var(--pink);border-radius:9px;background:#291426;color:#fff;cursor:pointer;font-weight:700}
+  `;
+  document.head.appendChild(style);
+
+  function directUrl(x){
+    const u=String(x?.url||'').toLowerCase();
+    return /\.(mp4|webm|ogg|m3u8)(\?|#|$)/i.test(u);
+  }
+
+  window.step17PlaySource=function(url,name){
+    if(!url) return;
+    const screenEl=document.getElementById('screen');
+    if(!screenEl) return;
+    screenEl.innerHTML='';
+
+    if(directUrl({url})){
+      const video=document.createElement('video');
+      video.className='step17-direct';
+      video.controls=true;
+      video.playsInline=true;
+      video.preload='metadata';
+      video.src=url;
+      video.addEventListener('loadedmetadata',()=>{
+        const key='time-'+(current?.mal_id||current?.anilist_id)+'-'+(Number(localStorage.getItem('ep-'+(current?.mal_id||current?.anilist_id)))||1);
+        const saved=Number(localStorage.getItem(key)||0);
+        if(saved>0 && saved<video.duration-5) video.currentTime=saved;
+      });
+      video.addEventListener('timeupdate',()=>{
+        const ep=Number(localStorage.getItem('ep-'+(current?.mal_id||current?.anilist_id)))||1;
+        const key='time-'+(current?.mal_id||current?.anilist_id)+'-'+ep;
+        if(Math.floor(video.currentTime)%5===0)localStorage.setItem(key,String(video.currentTime));
+      });
+      video.addEventListener('ended',()=>{
+        if(typeof markCurrentWatched==='function') markCurrentWatched();
+        if(typeof nextEpisode==='function'){
+          const btn=document.createElement('button');
+          btn.className='step17-next';
+          btn.textContent='⏭ Next Episode';
+          btn.onclick=()=>nextEpisode();
+          screenEl.appendChild(btn);
+        }
+      });
+      screenEl.appendChild(video);
+      if(document.getElementById('playerStatus')) document.getElementById('playerStatus').innerHTML='<span class="live">● Direct source loaded</span><span>'+esc(name||'Video source')+'</span>';
+      return;
+    }
+
+    screenEl.innerHTML='<div class="step17-empty"><strong style="display:block;color:#fff;margin-bottom:7px">🔗 '+esc(name||'Authorized Provider')+'</strong>This source opens on the provider website. AniVerse does not host the video.<br><button class="step17-next" onclick="window.open('+JSON.stringify(url)+',\'_blank\',\'noopener,noreferrer\')">Open Provider ↗</button></div>';
+  };
+
+  window.step17EnhanceProviders=function(a){
+    const p=document.getElementById('providers');
+    if(!p) return;
+    const sources=Array.isArray(a?.streaming)?a.streaming.filter(x=>x?.url):[];
+    p.innerHTML='';
+    if(!sources.length){
+      p.innerHTML='<span style="color:#777;font-size:12px">No provider link is available in the current metadata.</span>';
+      return;
+    }
+    const wrap=document.createElement('div');
+    wrap.className='step17-watchbar';
+    sources.forEach((x,i)=>{
+      const b=document.createElement('button');
+      b.className='step17-source'+(i===0?' active':'');
+      b.textContent='▶ '+(x.name||'Source '+(i+1));
+      b.onclick=()=>{
+        wrap.querySelectorAll('.step17-source').forEach(z=>z.classList.remove('active'));
+        b.classList.add('active');
+        step17PlaySource(x.url,x.name);
+      };
+      wrap.appendChild(b);
+    });
+    p.appendChild(wrap);
+  };
+
+  const oldOpenPlayer=window.openPlayer;
+  window.openPlayer=async function(){
+    if(typeof oldOpenPlayer==='function') await oldOpenPlayer();
+    if(typeof current!=='undefined' && current) step17EnhanceProviders(current);
+  };
+
+  /* The existing inline onclick uses the lexical openPlayer function.
+     Patch the button directly so Step 17 enhancement always runs. */
+  const watchBtn=document.getElementById('watch');
+  if(watchBtn){
+    watchBtn.onclick=async()=>{
+      if(!current)return;
+      document.getElementById('pTitle').textContent=title(current);
+      document.getElementById('pSub').textContent=`${current.type||'Anime'} • ${current.episodes||'?'} episodes`;
+      document.getElementById('playerModal').classList.add('active');
+      await buildSeasons(current);
+      buildEpisodes(current);
+      step17EnhanceProviders(current);
+      buildTrailer(current);
+    };
+  }
+})();
+
 </script>
 </body>
 </html>
