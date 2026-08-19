@@ -1315,5 +1315,43 @@ load();refresh();
 })();
 
 </script>
+
+<style>
+/* STEP 18 — Smart Library */
+.av18-library{max-width:1240px;margin:0 auto;padding:24px 20px 50px}
+.av18-head{display:flex;align-items:center;gap:12px;margin-bottom:15px}.av18-head h2{margin:0;font-size:22px}.av18-tabs{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:14px}.av18-tab{border:1px solid #29293a;background:#11111a;color:#aaa;border-radius:9px;padding:8px 12px;font-size:11px;cursor:pointer}.av18-tab.active,.av18-tab:hover{color:#fff;border-color:var(--pink)}
+.av18-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px}.av18-card{border:1px solid #29293a;background:#11111a;border-radius:13px;overflow:hidden;cursor:pointer}.av18-card:hover{border-color:var(--pink);transform:translateY(-2px)}.av18-card img{width:100%;height:250px;object-fit:cover;display:block}.av18-info{padding:10px}.av18-info strong{display:block;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.av18-info span{display:block;color:#888;font-size:10px;margin-top:5px}.av18-progress{height:4px;background:#272733}.av18-progress i{display:block;height:100%;background:linear-gradient(90deg,var(--pink),var(--purple));width:0}.av18-actions{display:flex;gap:6px;margin-top:8px}.av18-actions button{flex:1;border:1px solid #303044;background:#171722;color:#bbb;border-radius:7px;padding:6px;font-size:9px;cursor:pointer}.av18-actions button:hover{border-color:var(--pink);color:#fff}.av18-empty{padding:30px;border:1px dashed #303044;border-radius:12px;color:#777;text-align:center;font-size:12px;grid-column:1/-1}
+</style>
+<section id="av18Library" class="av18-library">
+  <div class="av18-head"><h2>My Library</h2><button class="av18-tab" id="av18Clear">Clear History</button></div>
+  <div class="av18-tabs"><button class="av18-tab active" data-av18="continue">Continue Watching</button><button class="av18-tab" data-av18="history">Recently Watched</button><button class="av18-tab" data-av18="watchlist">Watchlist</button></div>
+  <div id="av18Grid" class="av18-grid"></div>
+</section>
+<script>
+/* STEP 18 — Centralized library/history */
+(function(){
+ const KEY='aniverse-step18-history';
+ const WKEYS=['aniverseWatchlist','aniverse-watchlist'];
+ const $18=id=>document.getElementById(id);
+ function title(a){return a?.title_english||a?.title?.english||a?.title?.romaji||a?.title||'Unknown Anime'}
+ function img(a){return a?.images?.jpg?.large_image_url||a?.images?.jpg?.image_url||a?.coverImage?.extraLarge||'https://placehold.co/400x600/11111a/fff?text=No+Poster'}
+ function id(a){return String(a?.mal_id||a?.anilist_id||a?.id||title(a))}
+ function read(){try{return JSON.parse(localStorage.getItem(KEY)||'[]')}catch(e){return []}}
+ function write(x){localStorage.setItem(KEY,JSON.stringify(x.slice(0,60)))}
+ function watchlist(){for(const k of WKEYS){try{const x=JSON.parse(localStorage.getItem(k)||'null');if(Array.isArray(x))return x}catch(e){}}return []}
+ function progress(a){const key='aniverse-step15-'+id(a);try{const x=JSON.parse(localStorage.getItem(key)||'null');return x||null}catch(e){return null}}
+ function upsert(a,ep,position=0,duration=0){let h=read().filter(x=>id(x.anime)!==id(a));h.unshift({anime:a,episode:Number(ep)||1,position:Number(position)||0,duration:Number(duration)||0,updatedAt:Date.now()});write(h);render(current)}
+ let current='continue';
+ function data(mode){if(mode==='watchlist')return watchlist().map(a=>({anime:a,episode:progress(a)?.episode||1,position:progress(a)?.position||0,duration:progress(a)?.duration||0}));let h=read();if(mode==='history')return h;return h.filter(x=>x.position>0||x.episode>1).slice(0,30)}
+ function render(mode){current=mode;const g=$18('av18Grid');if(!g)return;g.innerHTML='';const items=data(mode);if(!items.length){g.innerHTML='<div class="av18-empty">Nothing here yet. Start watching an anime to build your library.</div>';return}items.forEach(x=>{const a=x.anime||x;const pct=x.duration?Math.min(100,Math.round(x.position/x.duration*100)):0;const c=document.createElement('article');c.className='av18-card';c.innerHTML='<img loading="lazy"><div class="av18-info"><strong></strong><span>Episode '+(x.episode||1)+(pct?' • '+pct+'%':'')+'</span><div class="av18-progress"><i></i></div><div class="av18-actions"><button class="resume">Resume</button><button class="remove">Remove</button></div></div>';c.querySelector('img').src=img(a);c.querySelector('img').alt=title(a);c.querySelector('strong').textContent=title(a);c.querySelector('i').style.width=pct+'%';c.querySelector('.resume').onclick=e=>{e.stopPropagation();if(typeof window.av15Open==='function')window.av15Open(a,x.episode||1)};c.querySelector('.remove').onclick=e=>{e.stopPropagation();remove(a)};c.onclick=()=>{if(typeof window.av15Open==='function')window.av15Open(a,x.episode||1)};g.appendChild(c)})}
+ function remove(a){write(read().filter(x=>id(x.anime)!==id(a)));render(current)}
+ window.av18TrackProgress=function(a,ep,pos,dur){upsert(a,ep,pos,dur)};
+ window.av18Refresh=function(){render(current)};
+ document.querySelectorAll('[data-av18]').forEach(b=>b.onclick=()=>{document.querySelectorAll('[data-av18]').forEach(x=>x.classList.remove('active'));b.classList.add('active');render(b.dataset.av18)});
+ $18('av18Clear')?.addEventListener('click',()=>{localStorage.removeItem(KEY);render(current);if(typeof window.toast==='function')toast('Watch history cleared')});
+ render('continue');
+})();
+</script>
+
 </body>
 </html>
