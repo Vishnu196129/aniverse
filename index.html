@@ -288,7 +288,8 @@ button{transition:.18s ease}
 </section>
 </main>
 
-<footer>© 2026 AniVerse — World Anime Library</footer>
+<footer>© 2026 AniVerse — World Anime Library<div id="apiFoot" style="text-align:center;color:#666;font-size:10px;padding:0 0 14px">API mode: Jikan + AniList • Fallback enabled</div>
+</footer>
 
 <!-- DETAILS -->
 <div id="detailsModal" class="modal"><div class="box"><button class="close" id="closeDetails">×</button><div class="details">
@@ -307,7 +308,7 @@ button{transition:.18s ease}
 <div id="continueBox" style="margin:0 0 12px;padding:10px 12px;border-radius:10px;background:#171722;color:#aaa;font-size:12px"></div>
     <div class="watching-tools">
       <button id="continueBtn" class="watch-action">▶ Continue</button>
-      <button id="firstEpisodeBtn" class="watch-action">⏮ Start from Episode 1</button>
+      <button id="firstEpisodeBtn" class="watch-action">⏮ Start from Episode 1</button><button id="nextEpisodeBtn" class="watch-action">⏭ Next Episode</button>
     </div>
     <div class="progress-wrap"><div id="episodeProgress" class="progress-bar"></div></div>
 <div class="episodebox"><h3>📺 Seasons & Episodes</h3><div id="seasonLine" class="filters"></div><div id="episodes" class="episodes"></div><div id="providers" class="provider"></div><div class="note">AniVerse does not host or distribute copyrighted anime episodes. Full episodes are opened through authorized provider links when supplied by the data source. Hindi/English dub availability is shown only when reliable metadata is available.</div></div>
@@ -781,6 +782,16 @@ if(!current)return;
 $('pTitle').textContent=title(current);$('pSub').textContent=`${current.type||'Anime'} • ${current.episodes||'?'} episodes`;
 $('playerModal').classList.add('active');await buildSeasons(current);buildEpisodes(current);buildProviders(current);buildTrailer(current)
 }
+function goToEpisode(a, ep){
+  const n=Number(a?.episodes)||0;
+  if(!n) return;
+  const target=Math.max(1,Math.min(Number(ep)||1,n));
+  localStorage.setItem('ep-'+(a.mal_id||a.anilist_id),target);
+  buildEpisodes(a);
+  selectEpisode(a,target);
+  toast(`Episode ${target} selected ▶`);
+}
+
 function buildEpisodes(a){
   const key='ep-'+(a.mal_id||a.anilist_id);
   const savedEp=Math.max(Number(localStorage.getItem(key))||1,1);
